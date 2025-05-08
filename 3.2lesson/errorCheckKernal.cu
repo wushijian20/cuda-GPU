@@ -1,15 +1,24 @@
+
+
 #include <stdio.h>
 #include "../tools/common.cuh"
+
+__device__ float add(const float x, const float y)
+{
+    return x + y;
+}
 
 __global__ void addFromGPU(float *A, float *B, float *C, const int N)
 {
     const int bid = blockIdx.x;
     const int tid = threadIdx.x;
-    const int id = tid + bid * blockDim.x; 
+    const int id = tid + bid * blockDim.x; // 513  32*17=544
 
-    C[id] = A[id] + B[id];
+    if (id >= N) return;
+    C[id] = add(A[id], B[id]);
     
 }
+
 
 void initialData(float *addr, int elemCount)
 {
@@ -20,14 +29,15 @@ void initialData(float *addr, int elemCount)
     return;
 }
 
+
 int main(void)
 {
     // 1、设置GPU设备
     setGPU();
 
     // 2、分配主机内存和设备内存，并初始化
-    int iElemCount = 512;                               // 设置元素数量
-    size_t stBytesCount = iElemCount * sizeof(float);   // 字节数
+    int iElemCount = 4096;                     // 设置元素数量
+    size_t stBytesCount = iElemCount * sizeof(float); // 字节数
     
     // （1）分配主机内存，并初始化
     float *fpHost_A, *fpHost_B, *fpHost_C;
@@ -39,12 +49,14 @@ int main(void)
         memset(fpHost_A, 0, stBytesCount);  // 主机内存初始化为0
         memset(fpHost_B, 0, stBytesCount);
         memset(fpHost_C, 0, stBytesCount);
+    
     }
     else
     {
         printf("Fail to allocate host memory!\n");
         exit(-1);
     }
+
 
     // （2）分配设备内存，并初始化
     float *fpDevice_A, *fpDevice_B, *fpDevice_C;
@@ -78,30 +90,34 @@ int main(void)
 
 
     // 5、调用核函数在设备中进行计算
-    dim3 block(32);
-    dim3 grid(iElemCount / 32);
+    dim3 block(2048);
+    // dim3 grid(iElemCount / 32);  // 513 / 32 = 16
+    dim3 grid((iElemCount + block.x - 1) / 2048); //17
 
     addFromGPU<<<grid, block>>>(fpDevice_A, fpDevice_B, fpDevice_C, iElemCount);    // 调用核函数
-    // cudaDeviceSynchronize();
+    ErrorCheck(cudaGetLastError(), __FILE__, __LINE__);
+    ErrorCheck(cudaDeviceSynchronize(), __FILE__, __LINE__);
+
+
 
     // 6、将计算得到的数据从设备传给主机
-    cudaMemcpy(fpHost_C, fpDevice_C, stBytesCount, cudaMemcpyDeviceToHost);
+    ErrorCheck(cudaMemcpy(fpHost_C, fpDevice_C, stBytesCount, cudaMemcpyDeviceToHost), __FILE__, __LINE__);
 
 
     for (int i = 0; i < 10; i++)    // 打印
     {
-        printf("idx=%.2d\tmatrix_A:%.2f\tmatrix_B:%.2f\tresult=%.2f\n", i+1, fpHost_A[i], fpHost_B[i], fpHost_C[i]);
+        printf("idx=%2d\tmatrix_A:%.2f\tmatrix_B:%.2f\tresult=%.2f\n", i+1, fpHost_A[i], fpHost_B[i], fpHost_C[i]);
     }
 
     // 7、释放主机与设备内存
     free(fpHost_A);
     free(fpHost_B);
     free(fpHost_C);
-    cudaFree(fpDevice_A);
-    cudaFree(fpDevice_B);
-    cudaFree(fpDevice_C);
+    ErrorCheck(cudaFree(fpDevice_A), __FILE__, __LINE__);
+    ErrorCheck(cudaFree(fpDevice_B), __FILE__, __LINE__);
+    ErrorCheck(cudaFree(fpDevice_C), __FILE__, __LINE__);
 
-    cudaDeviceReset();
+    ErrorCheck(cudaDeviceReset(), __FILE__, __LINE__);
     return 0;
 }
 
