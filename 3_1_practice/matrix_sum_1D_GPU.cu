@@ -1,5 +1,12 @@
 
-
+void initialData(float *ip, int elemCount)
+{
+    for (int i = 0; i < elemCount; i++)
+    {
+        ip[i] = (float)(rand() & 0xFF) / 10.0f; // generate a random float number between 0.0 and 25.5
+    }
+    return;
+}
 
 int main(void)
 {
@@ -8,7 +15,7 @@ int main(void)
     int iElemCount = 512;  // set the number of elements in the vectors
     size_t stBytesCount = IElemCount * sizeof(float); // calculate the size of the vectors in bytes
 
-    
+
     // allocate the host memory
     // declares three pointers to float values
     // each pointer will later refer to the start of an array(vector) in memory
@@ -46,10 +53,52 @@ int main(void)
     fpHost_B = (float*)malloc(stBytesCount); // host input vector
     fpHost_C = (float*)malloc(stBytesCount); //host result vector
 
+
+
+    // memset() means "memory set". It's a function from <string.h> used to 
+    // fill a block of memory with a specific value.
+    // void  *memset(void *ptr, int value, size_t num);
+    // ptr: pointer to the start of the memory block you want to fill
+    // value: the value to set (converted to an unsigned char)
+    // num: number of bytes to be set to the value
+
     if (fpHost_A != NULL && fpHost_B != NULL && fpHost_C != NULL)
     {
-        memset
+        // Initialize the host input vectors
+        memset(fpHost_A, 0, stBytesCount);
+        memset(fpHost_B, 0, stBytesCount);
+        memset(fpHost_C, 0, stBytesCount);
+    }
+    else
+    { 
+        printf("Fail to allocate host memory!\n");
+        exit(-1);
     }
 
 
+    // & is the address-of operator in c/c++. It returns the memory address of its operand.
+    // *fpDev_A means "the value stored in GPU memory at the address held by fpDev_A"
+    float *fpDev_A, *fpDev_B, *fpDev_C; // device vectors
+    cudaMalloc((float**)&fpDev_A, stBytesCount); // device input vector A
+    cudaMalloc((float**)&fpDev_B, stBytesCount); // device input vector B   
+    cudaMalloc((float**)&fpDev_C, stBytesCount); // device result vector C
+
+    if(fpDev_A != NULL && fpDev_B != NULL && fpDev_C != NULL)
+    {
+        // Initialize the device input vectors
+        cudaMemset(fpDev_A, 0, stBytesCount);
+        cudaMemset(fpDev_B, 0, stBytesCount);
+        cudaMemset(fpDev_C, 0, stBytesCount);
+    }
+    else
+    { 
+        printf("Fail to allocate device memory!\n");
+        free(fpHost_A);
+        free(fpHost_B);
+        free(fpHost_C);
+        exit(-1);
+    }
+
+    srand(2025); // set the seed for rand()
+    initialD
 }
