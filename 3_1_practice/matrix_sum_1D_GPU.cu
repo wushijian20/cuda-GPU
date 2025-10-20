@@ -1,3 +1,16 @@
+#include <stdio.h>
+#include "../tools/common.cuh"
+
+
+__global__ void addFormGPU(float *a, float *b, float *c, int elemCount)
+{
+    const int bid = blockIdx.x; // block index
+    const int tid = threadIdx.x; // thread index within the block
+    const int id = tid + bid * blockDim.x; // global thread index
+
+    c[id] = a[id] + b[id]; // perform the addition
+}
+
 
 void initialData(float *ip, int elemCount)
 {
@@ -13,7 +26,7 @@ int main(void)
     setGPU(); 
 
     int iElemCount = 512;  // set the number of elements in the vectors
-    size_t stBytesCount = IElemCount * sizeof(float); // calculate the size of the vectors in bytes
+    size_t stBytesCount = iElemCount * sizeof(float); // calculate the size of the vectors in bytes
 
 
     // allocate the host memory
@@ -100,5 +113,34 @@ int main(void)
     }
 
     srand(2025); // set the seed for rand()
-    initialD
+    initialData(fpHost_A, iElemCount); // initialize host vector A
+    initialData(fpHost_B, iElemCount); // initialize host vector B
+
+    cudaMemcpy(fpDev_A, fpHost_A, stBytesCount, cudaMemcpyHostToDevice); // copy data from host to device
+    cudaMemcpy(fpDev_B, fpHost_B, stBytesCount, cudaMemcpyHostToDevice); // copy data from host to device       
+    cudaMemcpy(fpDev_C, fpHost_C, stBytesCount, cudaMemcpyHostToDevice); // copy data from host to device
+
+    dim3 block(32); // set the number of threads per block
+    dim3 grid(iElemCount / 32); // set the number of blocks in the grid
+
+    addFormGPU<<<grid, block>>>(fpDev_A, fpDev_B, fpDev_C, iElemCount); // launch the kernel
+    cudaDeviceSynchronize(); // synchronize the device
+
+    cudaMemcpy(fpHost_C, fpDev_C, stBytesCount, cudaMemcpyDeviceToHost); // copy result from device to host
+
+    for (int i = 0; i < 10; i++)
+    {
+        printf("idx=%2d\tmaxtrixA: %.2f\tmatrix_B:%.2f\tresult=%.2f\n", i+1, fpHost_A[i], fpHost_B[i], fpHost_C[i]);
+    }
+
+    // free the device memory
+    free(fpHost_A);
+    free(fpHost_B); 
+    free(fpHost_C);
+    cudaFree(fpDev_A);
+    cudaFree(fpDev_B);
+    cudaFree(fpDev_C);
+
+    cudaDeviceReset();
+    return 0;
 }
