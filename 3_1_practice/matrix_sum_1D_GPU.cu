@@ -8,6 +8,7 @@ __global__ void addFormGPU(float *a, float *b, float *c, int elemCount)
     const int tid = threadIdx.x; // thread index within the block
     const int id = tid + bid * blockDim.x; // global thread index
 
+    if (id >= elemCount) return; // check boundary
     c[id] = a[id] + b[id]; // perform the addition
 }
 
@@ -25,7 +26,7 @@ int main(void)
 {
     setGPU(); 
 
-    int iElemCount = 512;  // set the number of elements in the vectors
+    int iElemCount = 513;  // set the number of elements in the vectors
     size_t stBytesCount = iElemCount * sizeof(float); // calculate the size of the vectors in bytes
 
 
@@ -121,7 +122,8 @@ int main(void)
     cudaMemcpy(fpDev_C, fpHost_C, stBytesCount, cudaMemcpyHostToDevice); // copy data from host to device
 
     dim3 block(32); // set the number of threads per block
-    dim3 grid(iElemCount / 32); // set the number of blocks in the grid
+    // dim3 grid(iElemCount / 32); // set the number of blocks in the grid
+    dim3 grid((iElemCount + block.x - 1) / 32); // set the number of blocks in the grid
 
     addFormGPU<<<grid, block>>>(fpDev_A, fpDev_B, fpDev_C, iElemCount); // launch the kernel
     cudaDeviceSynchronize(); // synchronize the device
